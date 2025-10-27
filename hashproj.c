@@ -258,13 +258,13 @@ unsigned long process_block(const unsigned char *buf, size_t len) {
 
     /* Step 3: Build Huffman tree using provided build_tree() function.
        Pass in the frequency array you just filled. */
-    Node *root = NULL;  /* TODO: call build_tree(freq) */
-    build_tree(freq);
+    Node *root = build_tree(freq);  /* TODO: call build_tree(freq) */
+
 
     /* Step 4: Compute hash of the tree using provided hash_tree().
        Start with an initial hash value of 0. */
     unsigned long h = 0;  /* TODO: call hash_tree(root, 0) */
-    unsigned long block_hash = (root, 0);
+    unsigned long block_hash = hash_tree(root, 0);
 
 
     /* Step 5: Free the Huffman tree to avoid memory leaks. */
@@ -298,6 +298,7 @@ int run_single(const char *filename) {
     size_t bytes_read;
     unsigned char* buffer;
 
+    // Open in 'read binary' mode
     fd = fopen(filename, "rb");
 
     if(fd == NULL){
@@ -305,19 +306,36 @@ int run_single(const char *filename) {
         return 1;
     }
 
-    buffer = (unsigned char*)malloc(sizeof(BLOCK_SIZE));
+    int block_num = 0;
+
+    unsigned long computed_hash = 0;
+    int j =0;
+    buffer = (unsigned char*)malloc(BLOCK_SIZE);
+
+    // Read file into buffer
+    while ((bytes_read = fread(buffer, 1, BLOCK_SIZE, fd)) > 0) {        
+
+        // Raw hash
+        unsigned long hash = process_block(buffer, bytes_read);
+
+        print_intermediate(block_num++, hash, getpid());
+
+        // computed hash
+        computed_hash = (computed_hash + hash) % LARGE_PRIME;
+    }
     
     if (buffer == NULL) {
-        perror("Memory allocation failed");
+        fprintf(stderr, "Could not allocate memory");
         fclose(fd);
         return 1;
     }
 
-    fread(buffer, sizeof(buffer), 1, fd);
+    fclose(fd);
+
+    print_final(computed_hash);
 
     free(buffer);
-    fclose(file);
-    
+
     return 0;
 }
 
