@@ -216,6 +216,10 @@ int main(int argc, char *argv[]) {
 
 #endif //GRADING_MODE
 
+
+
+
+
 /* =======================================================================
    STUDENT SECTION — IMPLEMENT THE FUNCTIONS BELOW
    -----------------------------------------------------------------------
@@ -225,8 +229,90 @@ int main(int argc, char *argv[]) {
    init_umem().
    ======================================================================= */
 
+// Global free list pointer
+void* free_list = NULL;
+
 void *umalloc(size_t size) {
-    return malloc(size);
+
+    // initialize on first call
+    if(free_list == NULL){
+        free_list = (node_t*) init_umem();
+    }
+    
+    // round to nearest 8 bytes
+    size = (size + 7) & ~7;
+
+    if(free_list == NULL){
+        fprintf(stderr, "Oops, memory couldnt be allocated");
+        return NULL;
+    }
+
+    // Point to the start of memory allocated ** noting start for loop purposes
+    node_t* starting_block = free_list;
+    node_t* current_block = free_list;
+
+    // Note previous node to point to next chunk of memory
+    node_t* prev = NULL;
+
+    while( current_block != starting_block){
+
+        if(current_block->size >= size){
+
+            // Pointer to memory start after header
+            void* start_of_actual_memory = (void*) ((char*) current_block + sizeof(header_t));
+
+            // Mark the start of memory block as the start of the header
+            header_t* header_start = (header_t*) current_block;
+            header_start->size = size;
+            header_start->magic = MAGIC;
+            
+            // Make sure remaining space can at least hold header if split
+            size_t total_remaining = current_block->size - size - sizeof(header_t);
+
+
+            // If it can hold at least the size of a header, split and return 1st portion
+            if(total_remaining > sizeof(node_t)){
+                node_t* remaining_block = (node_t*) ((char*) start_of_actual_memory + size);
+                remaining_block->size = total_remaining;
+                remaining_block->next = current_block->next;
+
+
+                // Update free list
+                if (prev == NULL) {
+                    free_list = remaining_block;
+                } 
+                else {
+                    prev->next = remaining_block;
+                }
+                
+                current_block = current_block -> next;
+
+            }
+            else{
+                if (prev == NULL) {
+                    free_list = current_block->next;
+                } 
+                else {
+                    prev->next = current_block->next;
+                }
+
+            }
+
+            // break loop, return pointer if space found
+            return start_of_actual_memory;
+        }
+
+
+        if (current_block == NULL){
+            current_block = free_list;
+            prev = NULL;
+        }
+
+        prev = current_block;
+        current_block = current_block->next;
+    }
+
+    return NULL;
 }
 
 void ufree(void *ptr) {
