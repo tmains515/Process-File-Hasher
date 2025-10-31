@@ -302,7 +302,7 @@ void *umalloc(size_t size) {
             return start_of_actual_memory;
         }
 
-
+        // Wrap around if we reach the end
         if (current_block == NULL){
             current_block = free_list;
             prev = NULL;
@@ -316,7 +316,39 @@ void *umalloc(size_t size) {
 }
 
 void ufree(void *ptr) {
-    free(ptr);
+    
+    if(ptr == NULL){
+        //
+    }
+
+    header_t* header = (header_t*) ( (char*) ptr - sizeof(header_t) );
+
+    if(header->magic != MAGIC){
+        fprintf(stderr, "Maigc number is not the same");
+        return exit(1);
+    }
+
+    header->magic = 0;
+
+    node_t* block_to_free = (node_t*) ptr;
+
+    node_t* current_node = free_list;
+    node_t* prev = NULL;
+
+
+    // Loop through and find insertion point
+    while(block_to_free != free_list || block_to_free > current_node){
+        prev = current_node;
+        current_node = current_node->next;
+    }
+
+    prev->next = block_to_free;
+    block_to_free->next = current_node;
+
+    if((void*) header < (void*) free_list){
+        free_list = block_to_free;
+    }
+
 }
 
 
